@@ -6,7 +6,7 @@ function BODcode()
 % define u explicitly to avoid error when using sub functions
 % see: https://www.mathworks.com/matlabcentral/answers/268580-error-attempt-to-add-variable-to-a-static-workspace-when-it-is-not-in-workspace
 
-% boilerplate
+% boilerplate code for starting Neato Position
 u = [];
 % u will be our parameter
 syms u;
@@ -17,7 +17,8 @@ T = diff(R);
 That = T/norm(T);
 
 
-% starts here
+% Mathematical code for controlling robot and creating wheel velocity
+% functions
 t = [];
 syms t
 % syms r
@@ -39,9 +40,11 @@ dT_hat=diff(T_hat,t);
 omega = simplify(cross(T_hat, dT_hat));
 speed = simplify(norm(dr));
 
+% setting functions for left and right wheel velocities
 vL = speed - (d*(omega(3)))/2;
 vR = speed + (d*(omega(3)))/2;
 
+% setting up publishing for ROS to publish to wheel velocities
 pub = rospublisher('raw_vel');
 
 % stop the robot if it's going right now
@@ -49,6 +52,7 @@ stopMsg = rosmessage(pub);
 stopMsg.Data = [0 0];
 send(pub, stopMsg);
 
+% starting position for Neato
 bridgeStart = double(subs(R,u,0));
 startingThat = double(subs(That,u,0));
 placeNeato(bridgeStart(1),  bridgeStart(2), startingThat(1), startingThat(2));
@@ -56,24 +60,28 @@ placeNeato(bridgeStart(1),  bridgeStart(2), startingThat(1), startingThat(2));
 % wait a bit for robot to fall onto the bridge
 pause(2);
 
-% time to drive!!
+% time to drive!! Calling the runNeato() function defined below
 runNeato();
 
 
-
+% Run Neato function that walks through a while loop 
 function runNeato()
+%     grabbing start time to reference during each run of while loop
     start = rostime('now');
     while 1
+%         puasing to allow data / encoder collection script to run
         pause(.1);
+%         getting time elapsed since start time
        current = rostime('now');
        timeNow = current-start;
 
 %        if mod(seconds(timeNow),3) == 0
 %            rostime('now')
 %        end 
-       
+%        calculating wheel speeds at each point in time
        vLtemp = double(subs(vL,t,seconds(timeNow)));
        vRtemp = double(subs(vR,t,seconds(timeNow)));
+%        sending wheel speeds via ROS publishers
        stopMsg.Data = [vLtemp,vRtemp]; 
        send(pub, stopMsg);
 %        disp(vLtemp + " " + vRtemp);
